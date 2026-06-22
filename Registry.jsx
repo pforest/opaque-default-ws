@@ -21,7 +21,7 @@ const WorkspacePerms = ({ workspaces }) => {
 };
 
 // Containers — registered via the CLI. They live in the same unified list as
-// resources, distinguished by type "Containers".
+// integrations, distinguished by type "Containers".
 const REG_CONTAINERS = [
 { name: "HR Assist",  type: "Containers", registeredBy: "Annemarie Selaya", updated: "14 Apr 2026", workspaces: ["HR Internal"] },
 { name: "fin-rag",    type: "Containers", registeredBy: "Evan McMillon",     updated: "12 Feb 2026", workspaces: ["Finance Department"] },
@@ -29,26 +29,34 @@ const REG_CONTAINERS = [
 { name: "HR RAG v1",  type: "Containers", registeredBy: "Janice Johnson",    updated: "24 Jan 2026", workspaces: ["HR Internal"] }];
 
 
-// ---------------- Resources tab (org-level) ----------------
+// ---------------- Integrations tab (org-level) ----------------
 
-const REG_RESOURCES = [
-{ name: "HR Policies Corpus", type: "Data Connectors", registeredBy: "Annemarie Selaya", updated: "18 Apr 2026" },
-{ name: "Salesforce CRM", type: "Data Connectors", registeredBy: "Deborah Mercy", updated: "12 Apr 2026" },
-{ name: "Confluence Wiki", type: "Data Connectors", registeredBy: "Priya Manikandan", updated: "09 Apr 2026" },
-{ name: "Web Search", type: "Agent Tools", registeredBy: "Platform", updated: "11 Apr 2026" },
-{ name: "SQL Query Tool", type: "Agent Tools", registeredBy: "Jordan Bellamy", updated: "07 Apr 2026" },
-{ name: "Code Interpreter", type: "Agent Tools", registeredBy: "Devon Oduya", updated: "26 Mar 2026" },
+const REG_INTEGRATIONS = [
+{ name: "HR Policies Corpus", type: "Databases", registeredBy: "Annemarie Selaya", updated: "18 Apr 2026" },
+{ name: "Salesforce CRM", type: "Databases", registeredBy: "Deborah Mercy", updated: "12 Apr 2026" },
+{ name: "SQL Query Tool", type: "Databases", registeredBy: "Jordan Bellamy", updated: "07 Apr 2026" },
+{ name: "Confluence Wiki", type: "File storage", registeredBy: "Priya Manikandan", updated: "09 Apr 2026" },
+{ name: "Data Lake — Raw", type: "File storage", registeredBy: "Maya Ramirez", updated: "15 Apr 2026" },
+{ name: "Orders Event Bus", type: "Messaging", registeredBy: "Jordan Bellamy", updated: "16 Apr 2026" },
+{ name: "Reconciliation Jobs", type: "Execution", registeredBy: "Devon Oduya", updated: "13 Apr 2026" },
+{ name: "Code Interpreter", type: "Execution", registeredBy: "Devon Oduya", updated: "26 Mar 2026" },
+{ name: "Web Search", type: "APIs & web", registeredBy: "Platform", updated: "11 Apr 2026" },
+{ name: "Support Tools MCP", type: "MCP servers", registeredBy: "Kiran Patel", updated: "10 Apr 2026" },
 { name: "Claude Sonnet 4.5", type: "Models", registeredBy: "Platform", updated: "14 Apr 2026" },
 { name: "Claude Haiku 4.5", type: "Models", registeredBy: "Platform", updated: "04 Apr 2026" },
 { name: "Claude Opus 4", type: "Models", registeredBy: "Platform", updated: "14 Mar 2026" }];
 
 
-const TYPE_FILTERS_REG = ["All types", "Containers", "Data Connectors", "Agent Tools", "Models"];
+const TYPE_FILTERS_REG = ["All types", "Containers", "Models", "Databases", "File storage", "Messaging", "Execution", "APIs & web", "MCP servers"];
 const TYPE_ICONS_REG = {
   "Containers": "deployed_code",
-  "Data Connectors": "database",
-  "Agent Tools": "construction",
-  "Models": "network_intel_node"
+  "Models": "network_intel_node",
+  "Databases": "database",
+  "File storage": "folder_open",
+  "Messaging": "forum",
+  "Execution": "bolt",
+  "APIs & web": "language",
+  "MCP servers": "extension"
 };
 
 const RegTypeCell = ({ type }) =>
@@ -71,7 +79,7 @@ const BoundCell = ({ boundTo, onBind }) => {
 
 };
 
-// ---------------- Resource access (drill-in) ----------------
+// ---------------- Integration access (drill-in) ----------------
 
 const REG_USERS = [
 { name: "Annemarie Selaya", email: "annemarie@opaque.co", role: "Owner" },
@@ -88,7 +96,7 @@ const REG_USERS = [
 { name: "Ben Tatsumi", email: "ben@opaque.co", role: "Member" }];
 
 
-// Seed grants per resource so the surface feels populated. Keyed by name;
+// Seed grants per integration so the surface feels populated. Keyed by name;
 // anything not listed starts empty.
 const DEFAULT_GRANTS = {
   "HR Policies Corpus": [
@@ -111,7 +119,7 @@ const DEFAULT_GRANTS = {
 const initialsOf = (name) => name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 const userByEmail = (email) => REG_USERS.find((u) => u.email === email);
 
-// Count of users with access (view or use) to a given resource.
+// Count of users with access (view or use) to a given integration.
 const accessCountFor = (name) =>
   (DEFAULT_GRANTS[name] || []).filter((g) => g.view || g.use).length;
 
@@ -166,9 +174,9 @@ const AddUserMenu = ({ candidates, onAdd, onClose }) => {
 
 };
 
-const ResourceDetail = ({ resource, onBack }) => {
+const IntegrationDetail = ({ integration, onBack }) => {
   const [grants, setGrants] = React.useState(() =>
-  (DEFAULT_GRANTS[resource.name] || []).map((g) => ({ email: g.email, access: !!(g.view || g.use) }))
+  (DEFAULT_GRANTS[integration.name] || []).map((g) => ({ email: g.email, access: !!(g.view || g.use) }))
   );
   const [addOpen, setAddOpen] = React.useState(false);
 
@@ -190,24 +198,24 @@ const ResourceDetail = ({ resource, onBack }) => {
           </button>
           <a className="wd-crumb-parent" href="#" onClick={(e) => {e.preventDefault();onBack();}}>Registry</a>
           <span className="wd-crumb-sep">/</span>
-          <span className="wd-crumb-mid">Resources</span>
+          <span className="wd-crumb-mid">Integrations</span>
           <span className="wd-crumb-sep">/</span>
-          <span className="wd-crumb-current">{resource.name}</span>
+          <span className="wd-crumb-current">{integration.name}</span>
         </div>
       </div>
 
       <div className="scroll">
         <div className="page-body reg-page">
           <div className="ra-head">
-            <div className="ra-head-icon"><Icon name={TYPE_ICONS_REG[resource.type] || "category"} size={24} /></div>
+            <div className="ra-head-icon"><Icon name={TYPE_ICONS_REG[integration.type] || "category"} size={24} /></div>
             <div className="ra-head-text">
-              <h1 className="ra-title">{resource.name}</h1>
+              <h1 className="ra-title">{integration.name}</h1>
               <div className="ra-meta">
-                <span>{resource.type}</span>
+                <span>{integration.type}</span>
                 <span className="ra-dot">·</span>
-                <span>Registered by {resource.registeredBy}</span>
+                <span>Registered by {integration.registeredBy}</span>
                 <span className="ra-dot">·</span>
-                <span>Updated {resource.updated}</span>
+                <span>Updated {integration.updated}</span>
               </div>
             </div>
           </div>
@@ -216,7 +224,7 @@ const ResourceDetail = ({ resource, onBack }) => {
             <div className="ra-section-head">
               <div>
                 <h2 className="ra-section-title">Access</h2>
-                <p className="ra-section-desc">Grant specific users access to this resource,  letting them use it as a node in their agents.
+                <p className="ra-section-desc">Grant specific users access to this integration,  letting them use it as a node in their agents.
 
 
                 </p>
@@ -275,7 +283,7 @@ const ResourceDetail = ({ resource, onBack }) => {
                       <td colSpan={3} className="ra-empty">
                         <Icon name="lock_person" size={28} />
                         <div className="ra-empty-title">No users have access yet</div>
-                        <div className="ra-empty-body">Add users to grant access to this resource.</div>
+                        <div className="ra-empty-body">Add users to grant access to this integration.</div>
                       </td>
                     </tr>
                   }
@@ -290,10 +298,10 @@ const ResourceDetail = ({ resource, onBack }) => {
 };
 
 
-// Workspace bindings for org resources (multi-workspace mode only). In
-// single-workspace mode every resource is auto-bound to the default workspace,
-// so this column is hidden. Platform/foundation resources bind to all.
-const RESOURCE_WS = {
+// Workspace bindings for org integrations (multi-workspace mode only). In
+// single-workspace mode every integration is auto-bound to the default workspace,
+// so this column is hidden. Platform/foundation integrations bind to all.
+const INTEGRATION_WS = {
   "HR Policies Corpus": ["HR Internal"],
   "Salesforce CRM":     ["Finance Department", "Sales & Marketing"],
   "Confluence Wiki":    ["HR Internal", "Sales & Marketing"],
@@ -305,7 +313,7 @@ const RESOURCE_WS = {
   "Claude Opus 4":      ["Finance Department", "HR Internal"],
 };
 
-const ResourcesTab = ({ onOpen }) => {
+const IntegrationsTab = ({ onOpen }) => {
   const [page, setPage] = React.useState(1);
   const [sort, setSort] = React.useState({ field: null, dir: "asc" });
   const multi = opqIsMulti();
@@ -335,7 +343,7 @@ const ResourcesTab = ({ onOpen }) => {
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    let list = [...REG_RESOURCES, ...REG_CONTAINERS].filter((r) => {
+    let list = [...REG_INTEGRATIONS, ...REG_CONTAINERS].filter((r) => {
       if (typeFilter !== "All types" && r.type !== typeFilter) return false;
       if (!q) return true;
       return (
@@ -367,13 +375,13 @@ const ResourcesTab = ({ onOpen }) => {
     <>
       <p className="reg-tab-helper">
         {multi
-          ? "Everything registered to your organization — containers, data connectors, agent tools, and models. Containers are registered via the CLI; resources must be bound to the workspaces where workflows can use them."
-          : "Everything registered to your organization — containers, data connectors, agent tools, and models. Containers are registered via the CLI; every resource is available org-wide to any workflow that references it."}
+          ? "Everything registered to your organization — containers, models, and integrations grouped by what they connect to. Containers are registered via the CLI; integrations must be bound to the workspaces where workflows can use them."
+          : "Everything registered to your organization — containers, models, and integrations grouped by what they connect to. Containers are registered via the CLI; every integration is available org-wide to any workflow that references it."}
       </p>
       <div className="filter-bar reg-filter-bar">
         <label className="search-field">
           <input
-            placeholder="Search resources..."
+            placeholder="Search integrations..."
             value={query}
             onChange={(e) => {setQuery(e.target.value);setPage(1);}} />
           
@@ -391,7 +399,7 @@ const ResourcesTab = ({ onOpen }) => {
           )}
         </div>
         <div className="spacer" />
-        <Button variant="primary" icon="add" size="sm" onClick={() => setRegisterOpen(true)}>Register resource</Button>
+        <Button variant="primary" icon="add" size="sm" onClick={() => setRegisterOpen(true)}>Register integration</Button>
       </div>
 
       <div className="table-wrap">
@@ -414,7 +422,7 @@ const ResourcesTab = ({ onOpen }) => {
                 </td>
                 <td><RegTypeCell type={r.type} /></td>
                 <td>{r.registeredBy}</td>
-                {multi && <td><WorkspacePerms workspaces={r.workspaces || RESOURCE_WS[r.name] || []} /></td>}
+                {multi && <td><WorkspacePerms workspaces={r.workspaces || INTEGRATION_WS[r.name] || []} /></td>}
                 <td className="reg-muted">{r.updated}</td>
                 <td className="actions-col" style={{ position: "relative" }}>
                   <button className="icon-btn" title="More" onClick={(e) => {e.stopPropagation();setOpenMenu(openMenu === r.name ? null : r.name);}}>
@@ -441,7 +449,7 @@ const ResourcesTab = ({ onOpen }) => {
             {rows.length === 0 &&
             <tr>
                 <td colSpan={multi ? 6 : 5} style={{ textAlign: "center", padding: "48px 12px", color: "var(--opq-ink-400)" }}>
-                  No resources match your filters.
+                  No integrations match your filters.
                 </td>
               </tr>
             }
@@ -458,7 +466,7 @@ const ResourcesTab = ({ onOpen }) => {
         
       </div>
 
-      <RegisterResourceModal
+      <RegisterIntegrationModal
         open={registerOpen}
         onClose={() => setRegisterOpen(false)}
         onComplete={(r) => setToast(r)} />
@@ -479,15 +487,15 @@ const ResourcesTab = ({ onOpen }) => {
 // ---------------- Main Registry component ----------------
 
 const Registry = () => {
-  const [openResource, setOpenResource] = React.useState(null);
+  const [openIntegration, setOpenIntegration] = React.useState(null);
 
   // Members have no access to Registry (brief). Nav hides it; guard here too.
   if (!opqIsAdmin()) {
     return <NoAccess title="Registry" area="Registry" />;
   }
 
-  if (openResource) {
-    return <ResourceDetail resource={openResource} onBack={() => setOpenResource(null)} />;
+  if (openIntegration) {
+    return <IntegrationDetail integration={openIntegration} onBack={() => setOpenIntegration(null)} />;
   }
 
   return (
@@ -495,7 +503,7 @@ const Registry = () => {
       <PageHeader title="Registry" />
       <div className="scroll">
         <div className="page-body reg-page">
-          <ResourcesTab onOpen={setOpenResource} />
+          <IntegrationsTab onOpen={setOpenIntegration} />
         </div>
       </div>
     </>);

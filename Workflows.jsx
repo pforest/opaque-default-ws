@@ -1,5 +1,5 @@
 // Agent Studio — home surface (3.0 UX brief v2, single-workspace mode).
-// Two tabs: Workflows (default) + Resources. The default workspace is implicit,
+// Two tabs: Workflows (default) + Integrations. The default workspace is implicit,
 // so there is no workspace context indicator anywhere on this surface.
 // Workflow status is Draft / Deployed; a Trust badge reflects latest attestation.
 // Members see only workflows they have access to; Owners/Global Admins see all.
@@ -15,7 +15,7 @@ const WORKFLOWS = [
 const ROWS_PER_PAGE = 10;
 
 // ---------------- Agent access control (object-level) ----------------
-// Mirrors the Resources access pattern in Registry: per-agent user grants,
+// Mirrors the Integrations access pattern in Registry: per-agent user grants,
 // surfaced as an Access count in the list and managed in a drill-in detail.
 
 const WF_USERS = [
@@ -55,12 +55,12 @@ const WF_AGENT_GRANTS = {
   ],
 };
 
-// ---------------- Studio Resources tab (consumption catalog) ----------------
-// In single-workspace mode every org-registered resource is auto-bound to the
+// ---------------- Studio Integrations tab (consumption catalog) ----------------
+// In single-workspace mode every org-registered integration is auto-bound to the
 // default workspace, so this surface shows the full org pool. There is no
-// workspace-binding UI. Resources are registered in Registry; Global Admins
+// workspace-binding UI. Integrations are registered in Registry; Global Admins
 // and Owners can also register contextually here (save back to registry).
-const STUDIO_RESOURCES = [
+const STUDIO_INTEGRATIONS = [
   { name: "HR Policies Corpus", type: "Data Connectors", source: "PostgreSQL",          updated: "18 Apr 2026" },
   { name: "Salesforce CRM",     type: "Data Connectors", source: "Salesforce",          updated: "12 Apr 2026" },
   { name: "Confluence Wiki",    type: "Data Connectors", source: "Atlassian",           updated: "09 Apr 2026" },
@@ -73,17 +73,17 @@ const STUDIO_RESOURCES = [
 ];
 
 // Object-level access grants (mirror Registry/Org Settings). A user can use a
-// resource as a node only if granted. Members see only what they can use.
+// integration as a node only if granted. Members see only what they can use.
 const STUDIO_RES_GRANTS = {
   "HR Policies Corpus": ["annemarie@opaque.co", "priya@opaque.co", "jordan@opaque.co"],
   "Salesforce CRM":     ["deborah@opaque.co", "maya@opaque.co"],
   "Claude Sonnet 4.5":  ["annemarie@opaque.co", "evan@opaque.co", "jordan@opaque.co", "maya@opaque.co"],
 };
-// Platform-provided resources every member can use without an explicit grant.
+// Platform-provided integrations every member can use without an explicit grant.
 const STUDIO_RES_OPEN = new Set(["Web Search", "Code Interpreter", "Claude Haiku 4.5"]);
 
-const studioResourcesFor = (email) =>
-  STUDIO_RESOURCES.filter((r) =>
+const studioIntegrationsFor = (email) =>
+  STUDIO_INTEGRATIONS.filter((r) =>
     STUDIO_RES_OPEN.has(r.name) || (STUDIO_RES_GRANTS[r.name] || []).includes(email));
 
 const TYPE_FILTERS_STUDIO = ["All types", "Data Connectors", "Agent Tools", "Models"];
@@ -398,10 +398,10 @@ const WorkflowsTab = ({ isMember, isAdmin, onOpenAgent }) => {
         <div className="wf-empty-title">No workflows yet</div>
         <div className="wf-empty-body">
           {isMember
-            ? "Build your first workflow using the built-in nodes, or ask a Global Admin to grant access to registered resources."
-            : "Build your first workflow using the built-in nodes, or register your own resources in Registry."}
+            ? "Build your first workflow using the built-in nodes, or ask a Global Admin to grant access to registered integrations."
+            : "Build your first workflow using the built-in nodes, or register your own integrations in Registry."}
         </div>
-        <Button variant="primary" size="sm">New agent</Button>
+        <Button variant="primary" size="sm" onClick={() => { window.location.href = "AgentStudio.html?new=1"; }}>New workflow</Button>
         {isMember && (
           <div className="wf-admin-dir">
             <div className="wf-admin-dir-label">Your organization’s admins</div>
@@ -450,7 +450,7 @@ const WorkflowsTab = ({ isMember, isAdmin, onOpenAgent }) => {
           <Icon name="search" size={18} />
         </label>
         <div className="spacer" />
-        <Button variant="primary" icon={null} size="sm">New agent</Button>
+        <Button variant="primary" icon={null} size="sm" onClick={() => { window.location.href = "AgentStudio.html?new=1"; }}>New workflow</Button>
       </div>
 
       <div className="table-wrap">
@@ -516,7 +516,7 @@ const WorkflowsTab = ({ isMember, isAdmin, onOpenAgent }) => {
   );
 };
 
-// ---------------- Resources tab (consumption catalog) ----------------
+// ---------------- Integrations tab (consumption catalog) ----------------
 const StudioTypeCell = ({ type }) => (
   <span className="type-cell">
     <Icon name={TYPE_ICONS_STUDIO[type] || "category"} size={18} />
@@ -524,7 +524,7 @@ const StudioTypeCell = ({ type }) => (
   </span>
 );
 
-const StudioResourcesTab = ({ isMember, isAdmin }) => {
+const StudioIntegrationsTab = ({ isMember, isAdmin }) => {
   const [query, setQuery] = React.useState("");
   const [typeFilter, setTypeFilter] = React.useState("All types");
   const [registerOpen, setRegisterOpen] = React.useState(false);
@@ -537,7 +537,7 @@ const StudioResourcesTab = ({ isMember, isAdmin }) => {
   }, [toast]);
 
   const memberUser = WF_USERS.find((u) => u.name === OPQ_PERSONA.member.name);
-  const base = isAdmin ? STUDIO_RESOURCES : studioResourcesFor(memberUser ? memberUser.email : "");
+  const base = isAdmin ? STUDIO_INTEGRATIONS : studioIntegrationsFor(memberUser ? memberUser.email : "");
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -553,14 +553,14 @@ const StudioResourcesTab = ({ isMember, isAdmin }) => {
       <p className="reg-tab-helper">
         {isAdmin
           ? (opqIsMulti()
-              ? `Resources bound to ${opqGetWorkspace()} are available here as nodes. Register a new resource to add it to this workspace — it’s also saved back to Registry. Bind existing resources from Registry.`
-              : "Every resource registered to your organization is available here as a node. Register a new resource to add it to the pool — it’s saved back to Registry and immediately usable in Studio.")
-          : "Resources you can use as nodes in your agents. Ask a Global Admin if you need access to something that isn’t listed."}
+              ? `Integrations bound to ${opqGetWorkspace()} are available here as nodes. Register a new integration to add it to this workspace — it’s also saved back to Registry. Bind existing integrations from Registry.`
+              : "Every integration registered to your organization is available here as a node. Register a new integration to add it to the pool — it’s saved back to Registry and immediately usable in Studio.")
+          : "Integrations you can use as nodes in your agents. Ask a Global Admin if you need access to something that isn’t listed."}
       </p>
 
       <div className="filter-bar reg-filter-bar">
         <label className="search-field">
-          <input placeholder="Search resources..." value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input placeholder="Search integrations..." value={query} onChange={(e) => setQuery(e.target.value)} />
           <Icon name="search" size={18} />
         </label>
         <div className="type-filters">
@@ -571,7 +571,7 @@ const StudioResourcesTab = ({ isMember, isAdmin }) => {
           ))}
         </div>
         <div className="spacer" />
-        {isAdmin && <Button variant="primary" icon="add" size="sm" onClick={() => setRegisterOpen(true)}>Register resource</Button>}
+        {isAdmin && <Button variant="primary" icon="add" size="sm" onClick={() => setRegisterOpen(true)}>Register integration</Button>}
       </div>
 
       <div className="table-wrap">
@@ -596,7 +596,7 @@ const StudioResourcesTab = ({ isMember, isAdmin }) => {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={4} style={{ textAlign: "center", padding: "48px 12px", color: "var(--opq-ink-400)" }}>
-                  {isMember ? "You don’t have access to any resources yet." : "No resources match your filters."}
+                  {isMember ? "You don’t have access to any integrations yet." : "No integrations match your filters."}
                 </td>
               </tr>
             )}
@@ -604,8 +604,8 @@ const StudioResourcesTab = ({ isMember, isAdmin }) => {
         </table>
       </div>
 
-      {isAdmin && typeof RegisterResourceModal !== "undefined" &&
-        <RegisterResourceModal
+      {isAdmin && typeof RegisterIntegrationModal !== "undefined" &&
+        <RegisterIntegrationModal
           open={registerOpen}
           onClose={() => setRegisterOpen(false)}
           onComplete={(r) => setToast(r)}
@@ -624,7 +624,7 @@ const StudioResourcesTab = ({ isMember, isAdmin }) => {
   );
 };
 
-// ---------------- Agent Studio home (tabs: Workflows + Resources) ----------------
+// ---------------- Agent Studio home (tabs: Workflows + Integrations) ----------------
 
 // Workspace select — lives in the Agent Studio page header (multi-workspace
 // mode). Replaces the old left-nav workspace picker. Clicking "HR Internal"
@@ -673,15 +673,15 @@ const AgentStudioHome = () => {
       <PageHeader
         title="Agent Studio"
         chip={opqIsMulti() ? <WorkspaceSelect /> : undefined}
-        tabs={["Workflows", "Resources"]}
+        tabs={["Workflows", "Integrations"]}
         activeTab={tab}
         onTab={setTab}
       />
       <div className="scroll">
-        <div className={tab === "Resources" ? "page-body reg-page" : "page-body"}>
+        <div className={tab === "Integrations" ? "page-body reg-page" : "page-body"}>
           {tab === "Workflows"
             ? <WorkflowsTab isMember={isMember} isAdmin={isAdmin} onOpenAgent={setOpenAgent} />
-            : <StudioResourcesTab isMember={isMember} isAdmin={isAdmin} />}
+            : <StudioIntegrationsTab isMember={isMember} isAdmin={isAdmin} />}
         </div>
       </div>
     </>
@@ -691,4 +691,4 @@ const AgentStudioHome = () => {
 // Back-compat alias so older mounts still resolve.
 const WorkflowsList = AgentStudioHome;
 
-Object.assign(window, { AgentStudioHome, WorkflowsTab, StudioResourcesTab, WorkflowsList, SortHeader, Pagination, StatusCell });
+Object.assign(window, { AgentStudioHome, WorkflowsTab, StudioIntegrationsTab, WorkflowsList, SortHeader, Pagination, StatusCell });

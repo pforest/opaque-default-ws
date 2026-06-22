@@ -1369,7 +1369,7 @@ table.opq-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .reg-attest-ts { font-size: 11px; color: var(--opq-ink-400); }
 
 
-/* --------------- Register Resource modal --------------- */
+/* --------------- Register Integration modal --------------- */
 .rr-overlay {
   position: fixed; inset: 0; z-index: 1000;
   background: rgba(8, 14, 18, 0.62);
@@ -1610,6 +1610,63 @@ textarea.rr-input { height: auto; padding: 8px 12px; resize: vertical; min-heigh
 .rr-success-strong { color: white; font-weight: 500; }
 .rr-success-actions { display: flex; gap: 8px; }
 
+/* operations step — access presets */
+.rr-access-seg {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  margin-bottom: 18px;
+}
+.rr-access-opt {
+  background: var(--opq-ink-850);
+  border: 1px solid var(--opq-ink-800);
+  border-radius: 6px;
+  padding: 14px 12px;
+  text-align: left;
+  color: white;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex; flex-direction: column; gap: 6px;
+  transition: border-color 0.12s, background 0.12s;
+}
+.rr-access-opt:hover { border-color: var(--opq-ink-600); }
+.rr-access-opt.selected {
+  border-color: var(--opq-emerald-500);
+  background: rgba(16, 185, 129, 0.06);
+}
+.rr-access-opt .material-symbols-outlined { color: var(--opq-emerald-400); }
+.rr-access-title { font-size: 13px; font-weight: 500; color: white; }
+.rr-access-desc { font-size: 12px; color: var(--opq-ink-300); line-height: 1.45; }
+
+/* operations step — operation rows */
+.rr-op-list { display: flex; flex-direction: column; gap: 8px; }
+.rr-op-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 14px;
+  background: var(--opq-ink-850);
+  border: 1px solid var(--opq-ink-800);
+  border-radius: 6px;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.rr-op-row:hover { border-color: var(--opq-ink-600); }
+.rr-op-row.on { border-color: var(--opq-emerald-600); background: rgba(16, 185, 129, 0.05); }
+.rr-op-check { color: var(--opq-ink-500); display: inline-flex; flex-shrink: 0; margin-top: 1px; }
+.rr-op-row.on .rr-op-check { color: var(--opq-emerald-400); }
+.rr-op-main { display: flex; flex-direction: column; gap: 3px; }
+.rr-op-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 500; color: white;
+}
+.rr-op-badge {
+  font-size: 10px; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 3px 6px; border-radius: 4px; font-weight: 600;
+}
+.rr-op-badge.read  { background: rgba(59, 130, 246, 0.16); color: var(--opq-info-400, #60a5fa); }
+.rr-op-badge.write { background: rgba(234, 179, 8, 0.16);  color: #facc15; }
+.rr-op-badge.destructive { background: rgba(239, 68, 68, 0.16); color: #f87171; }
+.rr-op-desc { font-size: 12px; color: var(--opq-ink-300); line-height: 1.45; }
+
 /* toast */
 .rr-toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
@@ -1633,7 +1690,7 @@ textarea.rr-input { height: auto; padding: 8px 12px; resize: vertical; min-heigh
 .rr-toast-close:hover { background: var(--opq-ink-800); color: white; }
 
 
-/* --------------- Bind Resource modal --------------- */
+/* --------------- Bind Integration modal --------------- */
 .br-modal { max-width: 640px; }
 
 .br-eyebrow {
@@ -1643,7 +1700,7 @@ textarea.rr-input { height: auto; padding: 8px 12px; resize: vertical; min-heigh
   margin-bottom: 6px;
 }
 .br-eyebrow .material-symbols-outlined { color: var(--opq-emerald-400); }
-.br-resource-name { color: var(--opq-emerald-400); font-weight: 500; }
+.br-integration-name { color: var(--opq-emerald-400); font-weight: 500; }
 
 .br-helper { margin-bottom: 4px; }
 
@@ -2191,7 +2248,7 @@ textarea.rr-input { height: auto; padding: 8px 12px; resize: vertical; min-heigh
 
 
 /* ============================================================
-   Registry — Resource detail + access grants
+   Registry — Integration detail + access grants
    ============================================================ */
 .ra-head { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; }
 .ra-head-icon {
@@ -2274,7 +2331,7 @@ textarea.rr-input { height: auto; padding: 8px 12px; resize: vertical; min-heigh
 }
 
 
-/* Registry — resource access-count cell */
+/* Registry — integration access-count cell */
 .reg-access-count {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 13px; color: var(--opq-ink-200);
@@ -2472,6 +2529,44 @@ textarea.rr-input { height: auto; padding: 8px 12px; resize: vertical; min-heigh
 .nm-item-name { font-size: 13px; }
 .nm-item-sub { font-size: 10px; color: var(--opq-ink-400); }
 .nm-empty { padding: 14px; text-align: center; color: var(--opq-ink-400); font-size: 12px; }
+
+/* Builder — operation chips on integration nodes */
+.as-op-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.as-op-chip {
+  display: inline-flex; align-items: center;
+  font-size: 11px; line-height: 1; padding: 4px 8px; border-radius: 5px; font-weight: 500;
+}
+.as-op-chip.read  { background: rgba(0,117,219,0.20); color: var(--opq-info-300); }
+.as-op-chip.write { background: rgba(234,179,8,0.18); color: #facc15; }
+
+/* Draft pill (new workflow) */
+.as-run-pill--draft { background: rgba(255,255,255,0.06); color: var(--opq-ink-200); }
+.as-run-pill--draft .as-run-dot { background: var(--opq-ink-400); }
+
+/* Configure-integration modal (reuses rr- modal shell) */
+.ic-modal { max-width: 560px; }
+.ic-modal-id { display: flex; align-items: center; gap: 12px; }
+.ic-modal-id .rr-connector-icon { width: 34px; height: 34px; }
+.ic-modal-sub { font-size: 12px; color: var(--opq-ink-300); margin-top: 3px; }
+.ic-group-label {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 12px; font-weight: 600; color: white;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  margin: 4px 0 10px;
+}
+.ic-group-label:not(:first-child) { margin-top: 22px; }
+.ic-group-hint {
+  font-size: 11px; font-weight: 400; color: var(--opq-ink-400);
+  text-transform: none; letter-spacing: 0;
+}
+.ic-mode-seg { grid-template-columns: repeat(2, 1fr); }
+.ic-op-list { gap: 8px; }
+.ic-guard-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 12px 14px; border: 1px solid var(--opq-ink-800); border-radius: 6px;
+  background: var(--opq-ink-850);
+}
+.ic-guard-row .rr-label { margin-bottom: 2px; }
 
 .nm-ghost {
   position: fixed; z-index: 1000; pointer-events: none;

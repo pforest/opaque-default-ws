@@ -21,7 +21,14 @@ const NODE_DEFS = {
   tool:  { w: 274, h: 372 },
   data:  { w: 274, h: 360 },
   end:   { w: 220, h: 120 },
+  integration: { w: 280, h: 312 },
 };
+
+// Blank workflow (New workflow) — just the Start and End anchors.
+const NEW_NODES = [
+  { id: "start", kind: "start", x: 200, y: 320 },
+  { id: "end",   kind: "end",   x: 860, y: 332 },
+];
 
 const INITIAL_NODES = [
   { id: "start", kind: "start", x: 120,  y: 430 },
@@ -147,18 +154,33 @@ const EndNode = () => (
   </>
 );
 
-const NODE_RENDER = { start: StartNode, llm: LLMNode, tool: ToolNode, data: DataNode, end: EndNode };
+const NODE_RENDER = { start: StartNode, llm: LLMNode, tool: ToolNode, data: DataNode, end: EndNode, integration: IntegrationNode };
 
 // ---------------- Node menu (palette) ----------------
 
-const NODE_CATEGORIES = [
-  { key: "tools",  label: "Agent tools",     icon: "handyman",   nodeKind: "tool",
-    items: ["Web Search", "SQL Query Tool", "Code Interpreter", "REST API Caller"] },
-  { key: "data",   label: "Data connectors", icon: "database",   nodeKind: "data",
-    items: ["Azure AI Search v1", "HR records 2024", "HR records 2025", "Snowflake CRM Data", "Confluence Wiki"] },
-  { key: "models", label: "Models",          icon: "psychology", nodeKind: "llm",
+// Palette grouped by source family — what the node connects to — mirroring the
+// register flow's source-first model. Tool-vs-pipeline mode and operation risk
+// are decided per node on drop, so they live as node metadata, not as palette
+// buckets. Models stay their own group: placed directly, with no credentials or
+// operations to configure.
+const SOURCE_FAMILIES = [
+  { key: "models",    label: "Models",       icon: "network_intel_node", kind: "llm",
     items: ["Claude Sonnet 4.5", "Claude Haiku 4.5", "Claude Opus 4", "Llama 3.2", "Falcon H1"] },
+  { key: "databases", label: "Databases",    icon: "database" },
+  { key: "files",     label: "File storage", icon: "folder_open" },
+  { key: "messaging", label: "Messaging",    icon: "forum" },
+  { key: "execution", label: "Execution",    icon: "bolt" },
+  { key: "apis",      label: "APIs & web",   icon: "language" },
+  { key: "mcp",       label: "MCP servers",  icon: "extension" },
 ];
+
+// Integration families pull their items from the registered catalog by family;
+// Models carries its own static list. Empty families are dropped.
+const NODE_CATEGORIES = SOURCE_FAMILIES
+  .map((f) => f.items
+    ? f
+    : { ...f, kind: "integration", items: BUILDER_INTEGRATIONS.filter((i) => i.family === f.label) })
+  .filter((c) => c.items.length > 0);
 
 const NodeMenu = ({ onStartDrag }) => {
   const [view, setView] = React.useState(null); // null = root, else category key
@@ -166,20 +188,26 @@ const NodeMenu = ({ onStartDrag }) => {
   const cat = NODE_CATEGORIES.find((c) => c.key === view);
   const query = q.trim().toLowerCase();
 
+  const itemName = (it) => (typeof it === "string" ? it : it.name);
+  const itemSub  = (it) => (typeof it === "string" ? null : it.source);
+
   // Flattened search across all categories (root view, query active).
   const flat = NODE_CATEGORIES.flatMap((c) =>
-    c.items.map((name) => ({ name, kind: c.nodeKind, cat: c.label }))
-  ).filter((x) => x.name.toLowerCase().includes(query));
+    c.items.map((it) => ({ it, kind: c.kind, cat: c.label }))
+  ).filter((x) => itemName(x.it).toLowerCase().includes(query));
 
-  const dragRow = (name, kind, sub) => (
-    <div key={name} className="nm-item" onMouseDown={(e) => onStartDrag(e, kind, name)}>
-      <span className="nm-grip"><Icon name="drag_indicator" size={16} /></span>
-      <span className="nm-item-text">
-        <span className="nm-item-name">{name}</span>
-        {sub && <span className="nm-item-sub">{sub}</span>}
-      </span>
-    </div>
-  );
+  const dragRow = (it, kind, sub) => {
+    const name = itemName(it);
+    return (
+      <div key={name} className="nm-item" onMouseDown={(e) => onStartDrag(e, kind, it)}>
+        <span className="nm-grip"><Icon name="drag_indicator" size={16} /></span>
+        <span className="nm-item-text">
+          <span className="nm-item-name">{name}</span>
+          {sub && <span className="nm-item-sub">{sub}</span>}
+        </span>
+      </div>
+    );
+  };
 
   const search = (
     <label className="nm-search" onMouseDown={(e) => e.stopPropagation()}>
@@ -197,7 +225,7 @@ const NodeMenu = ({ onStartDrag }) => {
             <div className="nm-list">
               {flat.length === 0
                 ? <div className="nm-empty">No nodes match “{q}”</div>
-                : flat.map((x) => dragRow(x.name, x.kind, x.cat))}
+                : flat.map((x) => dragRow(x.it, x.kind, itemSub(x.it) || x.cat))}
             </div>
           ) : (
             <div className="nm-list">
@@ -219,11 +247,11 @@ const NodeMenu = ({ onStartDrag }) => {
           </button>
           {search}
           <div className="nm-list">
-            {cat.items.filter((n) => n.toLowerCase().includes(query)).length === 0
+            {cat.items.filter((it) => itemName(it).toLowerCase().includes(query)).length === 0
               ? <div className="nm-empty">No nodes match “{q}”</div>
               : cat.items
-                  .filter((n) => n.toLowerCase().includes(query))
-                  .map((n) => dragRow(n, cat.nodeKind))}
+                  .filter((it) => itemName(it).toLowerCase().includes(query))
+                  .map((it) => dragRow(it, cat.kind, itemSub(it)))}
           </div>
         </>
       )}
@@ -236,7 +264,7 @@ const AgentNode = ({ node, onDragStart }) => {
   const Body = NODE_RENDER[node.kind];
   const cls =
     node.kind === "llm" ? " as-node--confidential" :
-    (node.kind === "tool" || node.kind === "data") ? " as-node--attested" : "";
+    (node.kind === "tool" || node.kind === "data" || node.kind === "integration") ? " as-node--attested" : "";
   return (
     <div
       className={`as-node${cls}`}
@@ -251,9 +279,11 @@ const AgentNode = ({ node, onDragStart }) => {
 // ---------------- Canvas shell ----------------
 
 const AgentStudioCanvas = () => {
-  const [nodes, setNodes] = React.useState(INITIAL_NODES);
-  const [zoom, setZoom] = React.useState(0.5);
-  const [pan, setPan] = React.useState({ x: 20, y: 24 });
+  const isNew = React.useMemo(() => new URLSearchParams(location.search).has("new"), []);
+  const [nodes, setNodes] = React.useState(isNew ? NEW_NODES : INITIAL_NODES);
+  const [zoom, setZoom] = React.useState(isNew ? 0.75 : 0.5);
+  const [pan, setPan] = React.useState(isNew ? { x: 60, y: 40 } : { x: 20, y: 24 });
+  const [pendingDrop, setPendingDrop] = React.useState(null);
 
   const drag = React.useRef(null); // { type:'pan'|'node', id, startX, startY, origin }
   const canvasRef = React.useRef(null);
@@ -298,10 +328,10 @@ const AgentStudioCanvas = () => {
   }, [zoom]);
 
   // Drag a palette item onto the canvas to create a new node.
-  const onMenuStartDrag = (e, kind, title) => {
+  const onMenuStartDrag = (e, kind, payload) => {
     e.stopPropagation();
     e.preventDefault();
-    setMenuDrag({ kind, title });
+    setMenuDrag({ kind, payload });
     setGhost({ x: e.clientX, y: e.clientY });
   };
 
@@ -313,11 +343,16 @@ const AgentStudioCanvas = () => {
       const inside = e.clientX >= rect.left && e.clientX <= rect.right &&
                      e.clientY >= rect.top && e.clientY <= rect.bottom;
       if (inside) {
-        const def = NODE_DEFS[menuDrag.kind];
         const vx = (e.clientX - rect.left - pan.x) / zoom;
         const vy = (e.clientY - rect.top - pan.y) / zoom;
-        const id = menuDrag.kind + "-" + Date.now();
-        setNodes((ns) => [...ns, { id, kind: menuDrag.kind, x: vx - def.w / 2, y: vy - 28, title: menuDrag.title }]);
+        if (menuDrag.kind === "integration") {
+          // Defer placement: configure the integration first.
+          setPendingDrop({ integration: menuDrag.payload, x: vx, y: vy });
+        } else {
+          const def = NODE_DEFS[menuDrag.kind];
+          const id = menuDrag.kind + "-" + Date.now();
+          setNodes((ns) => [...ns, { id, kind: menuDrag.kind, x: vx - def.w / 2, y: vy - 28, title: menuDrag.payload }]);
+        }
       }
       setMenuDrag(null);
     };
@@ -335,7 +370,7 @@ const AgentStudioCanvas = () => {
   const adjustZoom = (delta) => setZoom((z) => Math.min(1.6, Math.max(0.4, +(z + delta).toFixed(2))));
   const resetView = () => { setZoom(0.5); setPan({ x: 20, y: 24 }); };
 
-  const edges = EDGES.map((e, i) => {
+  const edges = (isNew ? [] : EDGES).map((e, i) => {
     const a = PORTS[e.from][e.fromPort](nodeById(e.from));
     const b = PORTS[e.to][e.toPort](nodeById(e.to));
     return { i, a, b, d: edgePath(a, b, e.dir) };
@@ -347,9 +382,11 @@ const AgentStudioCanvas = () => {
         <div className="as-crumbs">
           <a className="as-crumb" href="index.html">Agent Studio</a>
           <span className="as-crumb-sep">/</span>
-          <span className="as-crumb-current">Employee HR Assist</span>
+          <span className="as-crumb-current">{isNew ? "Untitled workflow" : "Employee HR Assist"}</span>
         </div>
-        <span className="as-run-pill"><span className="as-run-dot" />Running</span>
+        {isNew
+          ? <span className="as-run-pill as-run-pill--draft"><span className="as-run-dot" />Draft</span>
+          : <span className="as-run-pill"><span className="as-run-dot" />Running</span>}
         <div className="as-topbar-spacer" />
         <button className="icon-btn" title="Info"><Icon name="info" size={20} /></button>
         <button className="icon-btn" title="Attestation"><Icon name="verified_user" size={20} /></button>
@@ -383,8 +420,22 @@ const AgentStudioCanvas = () => {
         {menuDrag && (
           <div className="nm-ghost" style={{ left: ghost.x + 14, top: ghost.y + 12 }}>
             <Icon name="drag_indicator" size={16} />
-            <span>{menuDrag.title}</span>
+            <span>{menuDrag.kind === "integration" ? menuDrag.payload.name : menuDrag.payload}</span>
           </div>
+        )}
+
+        {typeof ConfigureIntegrationModal !== "undefined" && (
+          <ConfigureIntegrationModal
+            integration={pendingDrop ? pendingDrop.integration : null}
+            onClose={() => setPendingDrop(null)}
+            onAdd={(config) => {
+              const def = NODE_DEFS.integration;
+              const id = "integration-" + Date.now();
+              const drop = pendingDrop;
+              setNodes((ns) => [...ns, { id, kind: "integration", x: drop.x - def.w / 2, y: drop.y - 24, ...config }]);
+              setPendingDrop(null);
+            }}
+          />
         )}
       </div>
     </div>

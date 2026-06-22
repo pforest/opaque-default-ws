@@ -136,9 +136,9 @@ const OrgPoliciesTab = () =>
   </div>;
 
 
-// ---------- Resource access catalog (mirrors Registry seed data) ----------
+// ---------- Integration access catalog (mirrors Registry seed data) ----------
 
-const RESOURCE_CATALOG = [
+const INTEGRATION_CATALOG = [
   { name: "HR Policies Corpus", type: "Data Connectors", icon: "database" },
   { name: "Salesforce CRM",     type: "Data Connectors", icon: "database" },
   { name: "Confluence Wiki",    type: "Data Connectors", icon: "database" },
@@ -150,9 +150,9 @@ const RESOURCE_CATALOG = [
   { name: "Claude Opus 4",      type: "Models",          icon: "network_intel_node" },
 ];
 
-// Grants keyed by resource name → list of { email, view, use }. Mirrors
+// Grants keyed by integration name → list of { email, view, use }. Mirrors
 // Registry's DEFAULT_GRANTS so both surfaces tell the same story.
-const RESOURCE_GRANTS = {
+const INTEGRATION_GRANTS = {
   "HR Policies Corpus": [
     { email: "annemarie@opaque.co", view: true, use: true },
     { email: "priya@opaque.co",     view: true, use: true },
@@ -170,11 +170,11 @@ const RESOURCE_GRANTS = {
   ],
 };
 
-// Invert the grant map into a per-user list of resource permissions.
-// A user has access to a resource if any grant exists for them on it.
+// Invert the grant map into a per-user list of integration permissions.
+// A user has access to a integration if any grant exists for them on it.
 const permissionsForUser = (email) =>
-  RESOURCE_CATALOG.map((res) => {
-    const g = (RESOURCE_GRANTS[res.name] || []).find((x) => x.email === email);
+  INTEGRATION_CATALOG.map((res) => {
+    const g = (INTEGRATION_GRANTS[res.name] || []).find((x) => x.email === email);
     return { ...res, access: !!(g && (g.view || g.use)) };
   });
 
@@ -229,22 +229,22 @@ const UserPermissionsDetail = ({ user, onBack }) => {
           <section className="ra-section">
             <div className="ra-section-head">
               <div>
-                <h2 className="ra-section-title">Resource permissions</h2>
+                <h2 className="ra-section-title">Integration permissions</h2>
                 <p className="ra-section-desc">
-                  Which resources <strong>{user.name.split(" ")[0]}</strong> can use as a node in their agents.
+                  Which integrations <strong>{user.name.split(" ")[0]}</strong> can use as a node in their agents.
                 </p>
               </div>
             </div>
 
             <div className="ra-summary">
-              <span><strong>{accessCount}</strong> of {perms.length} resources accessible</span>
+              <span><strong>{accessCount}</strong> of {perms.length} integrations accessible</span>
             </div>
 
             <div className="table-wrap">
               <table className="opq-table wf-table ra-table">
                 <thead>
                   <tr>
-                    <th>Resource</th>
+                    <th>Integration</th>
                     <th className="ra-col-toggle">Access</th>
                   </tr>
                 </thead>
@@ -339,7 +339,7 @@ const OrgUsersTab = ({ onOpen }) => {
       <div className="os-access-note">
         <Icon name="info" size={18} />
         <span>
-          Manage who belongs to your organization and the role they hold. Resource- and
+          Manage who belongs to your organization and the role they hold. Integration- and
           agent-level access is granted per object in Registry and Agent Studio.
           {ownerView
             ? " As an Owner, you can assign or revoke the Global Admin role."
@@ -462,7 +462,7 @@ const OrgGeneralTab = () => {
         <section className="os-gen-section">
           <h2>Danger zone</h2>
           <div className="os-gen-card os-gen-danger">
-            <OSGeneralRow label="Delete organization" hint="Permanently removes all workflows, resources, and records. This cannot be undone.">
+            <OSGeneralRow label="Delete organization" hint="Permanently removes all workflows, integrations, and records. This cannot be undone.">
               <Button variant="destructive" size="sm">Delete organization</Button>
             </OSGeneralRow>
           </div>
