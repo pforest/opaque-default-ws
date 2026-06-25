@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Opaque — Integration Governance · 3-Layer Model</title>
+<link rel="stylesheet" href="colors_and_type.css" />
+<link rel="stylesheet" href="kit.css?v=23" />
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,400,0..1,0" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="Primitives.jsx"></script>
+<script type="text/babel" src="RegisterResource.jsx"></script>
+<script type="text/babel" src="IntegrationConfig.jsx"></script>
+<script type="text/babel" src="GovernanceSummary.jsx"></script>
+
+<script type="text/babel">
+const VIEWS = [
+  { key: "create",  n: 1, label: "Create connection",
+    note: <>The creator sets up a Salesforce connection. <strong>Credentials (Layer 1)</strong> are saved to the connection. <strong>Governance settings (Layer 2)</strong> define the permission ceiling — each scope field can be <strong>Locked</strong> (fixed for everyone) or <strong>Builder-set</strong> with an optional default. <strong>Configuration</strong> fields are always builder-set.</> },
+  { key: "node",    n: 2, label: "Builder node config",
+    note: <>A builder adds the connection to a workflow node. They pick operations within the ceiling, inherit <strong>locked</strong> values as read-only, and edit <strong>builder-set</strong> fields starting from the connection's defaults.</> },
+  { key: "summary", n: 3, label: "Governance summary",
+    note: <>A read-only view of all three layers for the connection — the credentials, the governance ceiling, and how each agent uses it in practice.</> },
+];
+
+function App() {
+  const initial = (() => {
+    try { return localStorage.getItem("opq-gov-view") || "create"; } catch (e) { return "create"; }
+  })();
+  const [view, setView] = React.useState(initial);
+  const choose = (k) => {
+    setView(k);
+    try { localStorage.setItem("opq-gov-view", k); } catch (e) {}
+  };
+  const meta = VIEWS.find((v) => v.key === view);
+
+  return (
+    <div className="gov-showcase">
+      <div className="gov-showcase-bar">
+        <div className="gov-brand">
+          <span className="opq-logo"><OpaqueLogo width={74} /></span>
+          <h1>Integration Governance</h1>
+        </div>
+        <div className="gov-seg">
+          {VIEWS.map((v) => (
+            <button key={v.key} className={view === v.key ? "active" : ""} onClick={() => choose(v.key)}>
+              <span className="gov-seg-num">{v.n}</span>{v.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="gov-stage">
+        <div className="gov-stage-inner">
+          <p className="gov-stage-note">{meta.note}</p>
+          {view === "create" && (
+            <RegisterIntegrationModal open embedded initialSourceId="salesforce" onClose={() => {}} />
+          )}
+          {view === "node" && (
+            <BuilderNodeConfigModal embedded onClose={() => {}} />
+          )}
+          {view === "summary" && (
+            <GovernanceSummary />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

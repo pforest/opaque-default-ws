@@ -27,6 +27,28 @@ const RR_SOURCES = [
       { id: "update", label: "Update records", desc: "Modify existing record fields.", write: true },
       { id: "delete", label: "Delete records", desc: "Remove records from Salesforce.", write: true },
     ],
+    // Layer 2 — lockable scope constraints. lockedDefault decides whether the
+    // field starts Locked (fixed for every workflow) or Builder-set (a default
+    // the builder can override). `value` is the locked value / default.
+    scopeFields: [
+      {
+        id: "object", label: "Object scope", type: "select",
+        options: ["Opportunities", "Accounts", "Contacts", "Leads", "Cases", "Any object"],
+        help: "The Salesforce object(s) agents may operate on through this connection.",
+        lockedDefault: true, value: "Opportunities",
+      },
+      {
+        id: "recordFilter", label: "Record filter (SOQL WHERE)", type: "text",
+        placeholder: "e.g. StageName = 'Closed Won'",
+        help: "A WHERE clause applied to every query. Lock it to enforce a hard boundary, or set a default builders can tighten.",
+        lockedDefault: false, value: "StageName = 'Closed Won'",
+      },
+    ],
+    // Always builder-set (Layer 3). Creator may pre-set a default; never lockable.
+    configFields: [
+      { id: "maxRecords", label: "Max records per call", placeholder: "25", value: "25", help: "Builders can change this per workflow." },
+      { id: "outputVar", label: "Output variable", placeholder: "{{salesforce:records}}", value: "{{salesforce:records}}", help: "Where results are written in the workflow graph." },
+    ],
   },
   {
     id: "postgres",
@@ -269,6 +291,52 @@ const RR_SOURCES = [
   },
 ];
 
+// A fully-created Salesforce connection — shared source of truth for the
+// builder node config (Layer 3) and the read-only governance summary so the
+// three views stay consistent. Mirrors what the form above produces.
+const SF_GOV_CONNECTION = {
+  id: "salesforce_prod",
+  name: "Salesforce — Production",
+  source: "Salesforce",
+  icon: "cloud",
+  tone: "info",
+  family: "Databases",
+  instanceUrl: "https://acme.my.salesforce.com",
+  owner: "Annemarie Selaya",
+  ownerRole: "Owner",
+  created: "Jun 18, 2026",
+  operations: [
+    { id: "read",   label: "Read records",   write: false, permitted: true },
+    { id: "create", label: "Create records", write: true,  permitted: false },
+    { id: "update", label: "Update records", write: true,  permitted: true },
+    { id: "delete", label: "Delete records", write: true,  permitted: false },
+  ],
+  scope: [
+    { id: "object", label: "Object scope", locked: true, value: "Opportunities",
+      help: "Agents may only operate on this object." },
+    { id: "recordFilter", label: "Record filter (SOQL)", locked: false, value: "StageName = 'Closed Won'",
+      help: "Default WHERE clause — builders may narrow it further, never widen it." },
+  ],
+  config: [
+    { id: "maxRecords", label: "Max records per call", value: "25" },
+    { id: "outputVar",  label: "Output variable",      value: "{{salesforce:records}}" },
+  ],
+  usage: [
+    {
+      workflow: "Employee HR Assist", node: "Salesforce CRM",
+      ops: ["Read records"], object: "Opportunities",
+      filter: "StageName = 'Closed Won' AND OwnerId = {{user.sfId}}",
+      maxRecords: "25",
+    },
+    {
+      workflow: "Pipeline Digest", node: "Salesforce CRM",
+      ops: ["Read records", "Update records"], object: "Opportunities",
+      filter: "CloseDate = THIS_QUARTER",
+      maxRecords: "200",
+    },
+  ],
+};
+
 // ---------------- Step 1: pick source ----------------
 
 const RRSourceStep = ({ selected, onSelect, query, onQuery }) => {
@@ -424,6 +492,18 @@ const presetOps = (source, key) => {
   return map;
 };
 
+// Initialise Layer 2 scope state and Layer 3 default state from a source.
+const initScopeState = (source) => {
+  const m = {};
+  (source.scopeFields || []).forEach((f) => { m[f.id] = { locked: !!f.lockedDefault, value: f.value || "" }; });
+  return m;
+};
+const initConfigState = (source) => {
+  const m = {};
+  (source.configFields || []).forEach((f) => { m[f.id] = f.value || ""; });
+  return m;
+};
+
 const RROperationsFields = ({ source, access, onAccess, selectedOps, onToggleOp }) => (
   <>
     <div className="rr-access-seg">
@@ -466,40 +546,167 @@ const RROperationsFields = ({ source, access, onAccess, selectedOps, onToggleOp 
   </>
 );
 
-// ---------------- Step 2: configure (credentials + operations) ----------------
+// ---------------- Step 2: configure (credentials + governance + config) ----------------
+
+// Layer 2 governance field: a lockable scope constraint. The creator chooses
+// Locked (a fixed value every workflow inherits) or Builder-set (an optional
+// default the builder can override within scope).
+const RRGovField = ({ field, state, onChange }) => {
+  const locked = !!state.locked;
+  const setLocked = (v) => onChange({ ...state, locked: v });
+  const setValue = (v) => onChange({ ...state, value: v });
+  return (
+    <div className={`gov-field${locked ? " locked" : ""}`}>
+      <div className="gov-field-top">
+        <div className="gov-field-main">
+          <div className="gov-field-label">
+            <Icon name={locked ? "lock" : "lock_open"} size={15} />
+            {field.label}
+          </div>
+          <div className="gov-field-help">{field.help}</div>
+        </div>
+        <div className="gov-lock-seg">
+          <button
+            type="button"
+            className={`gov-lock-opt is-lock${locked ? " active" : ""}`}
+            onClick={() => setLocked(true)}
+          >
+            <Icon name="lock" size={15} />Locked
+          </button>
+          <button
+            type="button"
+            className={`gov-lock-opt${!locked ? " active" : ""}`}
+            onClick={() => setLocked(false)}
+          >
+            Builder-set
+          </button>
+        </div>
+      </div>
+      <div className="gov-field-value">
+        <label className="rr-label">
+          {locked ? "Locked value" : "Default value"}
+          <span className={`gov-value-tag ${locked ? "locked" : "builder"}`}>
+            {locked ? "Builders inherit" : "Optional"}
+          </span>
+        </label>
+        {field.type === "select" ? (
+          <div className="rr-select-wrap">
+            <select className="rr-input" value={state.value || ""} onChange={(e) => setValue(e.target.value)}>
+              {(field.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+            <Icon name="expand_more" size={18} />
+          </div>
+        ) : (
+          <input className="rr-input" placeholder={field.placeholder} value={state.value || ""} onChange={(e) => setValue(e.target.value)} />
+        )}
+        <div className="rr-help">
+          {locked
+            ? "Builders inherit this value in every workflow and cannot change it."
+            : "Pre-fills the field for builders, who may override it per workflow — never beyond this connection’s scope."}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Layer 3 config field shown in the creation form only to pre-set a default.
+const RRConfigFieldRow = ({ field, value, onChange }) => (
+  <div className="rr-field">
+    <label className="rr-label">{field.label}</label>
+    <input className="rr-input" placeholder={field.placeholder} value={value || ""} onChange={(e) => onChange(e.target.value)} />
+    <div className="rr-help">{field.help || "Builders set this per workflow."}</div>
+  </div>
+);
 
 const RRConfigureStep = ({
   source, values, onChange, errors,
   access, onAccess, selectedOps, onToggleOp,
-}) => (
-  <>
-    <p className="rr-helper">
-      Set the credentials used to connect to <strong>{source.name}</strong> and the
-      operations this integration may perform. Credentials are stored encrypted and
-      never exposed to workflow authors.
-    </p>
+  scopeState, onScope, configState, onConfig,
+}) => {
+  const hasScope = source.scopeFields && source.scopeFields.length > 0;
+  const hasConfig = source.configFields && source.configFields.length > 0;
+  return (
+    <>
+      <div className="rr-model-callout">
+        <span className="rr-model-icon"><Icon name="account_tree" size={18} /></span>
+        <span>
+          A connection has three layers. <strong>Layer 1</strong> is the system + credentials
+          below. <strong>Layer 2</strong> is the governance ceiling — lock a value to fix it
+          for everyone, or leave it builder-set with a default. <strong>Layer 3</strong> is what
+          each builder configures per node, always within that ceiling.
+        </span>
+      </div>
 
-    <div className="ic-group-label">Credentials</div>
-    <RRCredentialsFields
-      source={source}
-      values={values}
-      onChange={onChange}
-      errors={errors}
-    />
+      <div className="ic-group-label">
+        Credentials
+        <span className="ic-group-hint">Layer 1 · saved to the connection, never shown to builders</span>
+      </div>
+      <RRCredentialsFields
+        source={source}
+        values={values}
+        onChange={onChange}
+        errors={errors}
+      />
 
-    <div className="ic-group-label">
-      Allowed operations
-      <span className="ic-group-hint">Workflows can never exceed this scope</span>
-    </div>
-    <RROperationsFields
-      source={source}
-      access={access}
-      onAccess={onAccess}
-      selectedOps={selectedOps}
-      onToggleOp={onToggleOp}
-    />
-  </>
-);
+      {/* Layer 2 — governance settings */}
+      <div className="gov-section-head">
+        <span className="gov-section-icon gov"><Icon name="shield" size={16} /></span>
+        <div className="gov-section-titles">
+          <div className="gov-section-title">Governance settings · Layer 2</div>
+          <div className="gov-section-desc">
+            The permission ceiling for this connection. Only you or an admin can change these
+            later. Lock a value to fix it for every workflow, or leave it builder-set.
+          </div>
+        </div>
+      </div>
+
+      <div className="ic-group-label">
+        Allowed operations
+        <span className="ic-group-hint">Builders enable a subset — never beyond this set</span>
+      </div>
+      <RROperationsFields
+        source={source}
+        access={access}
+        onAccess={onAccess}
+        selectedOps={selectedOps}
+        onToggleOp={onToggleOp}
+      />
+
+      {hasScope && (
+        <>
+          <div className="ic-group-label" style={{ marginTop: 18 }}>
+            Scope constraints
+            <span className="ic-group-hint">Lock to enforce, or default for builders</span>
+          </div>
+          {source.scopeFields.map((f) => (
+            <RRGovField key={f.id} field={f} state={scopeState[f.id] || {}} onChange={(s) => onScope(f.id, s)} />
+          ))}
+        </>
+      )}
+
+      {/* Layer 3 — builder configuration */}
+      {hasConfig && (
+        <>
+          <div className="gov-section-head">
+            <span className="gov-section-icon cfg"><Icon name="tune" size={16} /></span>
+            <div className="gov-section-titles">
+              <div className="gov-section-title">Configuration · set by builders</div>
+              <div className="gov-section-desc">
+                Always filled in by the builder when they add this connection to a workflow.
+                You can pre-set defaults, but these are never locked.
+              </div>
+            </div>
+          </div>
+          <div className="rr-form">
+            {source.configFields.map((f) => (
+              <RRConfigFieldRow key={f.id} field={f} value={configState[f.id]} onChange={(v) => onConfig(f.id, v)} />
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
+};
 
 // ---------------- Step 3: success ----------------
 
@@ -511,9 +718,9 @@ const RRSuccessStep = ({ name, opCount, onClose }) => (
     <div className="rr-success-title">Integration created</div>
     <div className="rr-success-name">{name}</div>
     <p className="rr-success-body">
-      <span className="rr-success-strong">{name}</span> is now in the org-level integration
-      pool with {opCount} allowed {opCount === 1 ? "operation" : "operations"}, immediately
-      available as a node in Studio for any workflow.
+      <span className="rr-success-strong">{name}</span> is now in the org-level connection
+      pool with a governance ceiling of {opCount} allowed {opCount === 1 ? "operation" : "operations"}.
+      Builders can add it to any workflow and configure it within that ceiling — locked values stay fixed.
     </p>
     <div className="rr-success-actions">
       <Button variant="primary" size="sm" onClick={onClose}>Done</Button>
@@ -523,7 +730,7 @@ const RRSuccessStep = ({ name, opCount, onClose }) => (
 
 // ---------------- Modal shell ----------------
 
-const RegisterIntegrationModal = ({ open, onClose, onComplete }) => {
+const RegisterIntegrationModal = ({ open, onClose, onComplete, embedded = false, initialSourceId = null }) => {
   const [step, setStep] = React.useState(1);
   const [sourceId, setSourceId] = React.useState(null);
   const [pickerQuery, setPickerQuery] = React.useState("");
@@ -531,6 +738,8 @@ const RegisterIntegrationModal = ({ open, onClose, onComplete }) => {
   const [errors, setErrors] = React.useState({});
   const [access, setAccess] = React.useState("read");
   const [selectedOps, setSelectedOps] = React.useState({});
+  const [scopeState, setScopeState] = React.useState({});
+  const [configState, setConfigState] = React.useState({});
   const [submitted, setSubmitted] = React.useState(null);
 
   React.useEffect(() => {
@@ -541,10 +750,26 @@ const RegisterIntegrationModal = ({ open, onClose, onComplete }) => {
   }, [open, onClose]);
 
   React.useEffect(() => {
-    if (open) {
+    if (!open) return;
+    if (initialSourceId) {
+      const src = RR_SOURCES.find((s) => s.id === initialSourceId);
+      setSourceId(initialSourceId);
+      setPickerQuery("");
+      setValues(initialSourceId === "salesforce"
+        ? { name: "Salesforce — Production", instanceUrl: "https://acme.my.salesforce.com", clientId: "3MVG9...QY2" }
+        : {});
+      setErrors({});
+      // Demo ceiling: read + update permitted, create/delete excluded.
+      setAccess("custom");
+      setSelectedOps(src ? { ...presetOps(src, "read"), ...(initialSourceId === "salesforce" ? { update: true } : {}) } : {});
+      setScopeState(src ? initScopeState(src) : {});
+      setConfigState(src ? initConfigState(src) : {});
+      setSubmitted(null);
+      setStep(2);
+    } else {
       setStep(1); setSourceId(null); setPickerQuery("");
       setValues({}); setErrors({}); setAccess("read");
-      setSelectedOps({}); setSubmitted(null);
+      setSelectedOps({}); setScopeState({}); setConfigState({}); setSubmitted(null);
     }
   }, [open]);
 
@@ -569,11 +794,16 @@ const RegisterIntegrationModal = ({ open, onClose, onComplete }) => {
     setSelectedOps(s => ({ ...s, [id]: !s[id] }));
   };
 
+  const onScope = (id, s) => setScopeState(st => ({ ...st, [id]: s }));
+  const onConfig = (id, v) => setConfigState(st => ({ ...st, [id]: v }));
+
   const goNext = () => {
     if (step === 1 && sourceId) {
       // initialise operations to the Read-only preset on first entry
       setAccess("read");
       setSelectedOps(presetOps(source, "read"));
+      setScopeState(initScopeState(source));
+      setConfigState(initConfigState(source));
       setStep(2);
     } else if (step === 2) {
       const errs = {};
@@ -606,8 +836,11 @@ const RegisterIntegrationModal = ({ open, onClose, onComplete }) => {
   };
 
   return (
-    <div className="rr-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="rr-modal" role="dialog" aria-modal="true">
+    <div
+      className={`rr-overlay${embedded ? " rr-overlay--embedded" : ""}`}
+      onMouseDown={(e) => { if (!embedded && e.target === e.currentTarget) onClose(); }}
+    >
+      <div className={`rr-modal${embedded ? " rr-modal--embedded" : ""}`} role="dialog" aria-modal="true">
         <div className="rr-modal-head">
           <div className="rr-modal-title-row">
             <h2 className="rr-modal-title">{titleByStep[step]}</h2>
@@ -653,6 +886,10 @@ const RegisterIntegrationModal = ({ open, onClose, onComplete }) => {
               onAccess={onAccess}
               selectedOps={selectedOps}
               onToggleOp={onToggleOp}
+              scopeState={scopeState}
+              onScope={onScope}
+              configState={configState}
+              onConfig={onConfig}
             />
           )}
           {step === 3 && submitted && (
@@ -686,4 +923,4 @@ const RegisterIntegrationModal = ({ open, onClose, onComplete }) => {
   );
 };
 
-Object.assign(window, { RegisterIntegrationModal });
+Object.assign(window, { RegisterIntegrationModal, SF_GOV_CONNECTION });

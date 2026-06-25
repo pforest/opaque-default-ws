@@ -383,3 +383,154 @@ const IntegrationNode = ({ node }) => {
 };
 
 Object.assign(window, { BUILDER_INTEGRATIONS, ConfigureIntegrationModal, IntegrationNode });
+
+// ============================================================
+// Layer 3 — Builder node config, governance-aware.
+// A builder picks a connection in their workflow and configures what the
+// agent actually does, strictly within the Layer 2 ceiling. Locked governance
+// fields render read-only; builder-set fields are editable, pre-filled with the
+// connection default; configuration fields are always editable.
+// ============================================================
+
+const BuilderNodeConfigModal = ({ connection, onClose, embedded = false }) => {
+  const conn = connection || window.SF_GOV_CONNECTION;
+  const permitted = conn.operations.filter((o) => o.permitted);
+  const blocked = conn.operations.filter((o) => !o.permitted);
+  const lockedScope = conn.scope.filter((s) => s.locked);
+  const builderScope = conn.scope.filter((s) => !s.locked);
+
+  const [mode, setMode] = React.useState("pipeline");
+  const [ops, setOps] = React.useState(() => {
+    const m = {}; permitted.forEach((o) => { m[o.id] = o.id === "read"; }); return m;
+  });
+  const [scopeVals, setScopeVals] = React.useState(() => {
+    const m = {}; builderScope.forEach((s) => { m[s.id] = s.value || ""; }); return m;
+  });
+  const [cfg, setCfg] = React.useState(() => {
+    const m = {}; conn.config.forEach((c) => { m[c.id] = c.value || ""; }); return m;
+  });
+
+  const selectedCount = Object.values(ops).filter(Boolean).length;
+
+  const card = (
+    <div className={`rr-modal ic-modal${embedded ? " rr-modal--embedded" : ""}`} role="dialog" aria-modal="true">
+      <div className="rr-modal-head">
+        <div className="rr-modal-title-row">
+          <div className="ic-modal-id">
+            <span className="rr-connector-icon tone-info"><Icon name={conn.icon} size={18} /></span>
+            <div>
+              <h2 className="rr-modal-title">Configure {conn.source} CRM</h2>
+              <div className="ic-modal-sub">{conn.family} · {conn.name}</div>
+            </div>
+          </div>
+          <button className="rr-close" onClick={onClose} aria-label="Close">
+            <Icon name="close" size={20} />
+          </button>
+        </div>
+      </div>
+
+      <div className="rr-modal-body">
+        <div className="ic-gov-banner">
+          <Icon name="shield" size={18} />
+          <div className="ic-gov-banner-txt">
+            Configured within the governance ceiling set by <strong>{conn.owner}</strong> on the{" "}
+            <strong>{conn.name}</strong> connection. Locked values are fixed and cannot be changed here.
+          </div>
+        </div>
+
+        <div className="ic-group-label">Mode</div>
+        <div className="rr-access-seg ic-mode-seg">
+          <button className={`rr-access-opt${mode === "tool" ? " selected" : ""}`} onClick={() => setMode("tool")}>
+            <Icon name="build" size={18} />
+            <span className="rr-access-title">Tool mode</span>
+            <span className="rr-access-desc">Exposed to the agent as a callable tool.</span>
+          </button>
+          <button className={`rr-access-opt${mode === "pipeline" ? " selected" : ""}`} onClick={() => setMode("pipeline")}>
+            <Icon name="account_tree" size={18} />
+            <span className="rr-access-title">Non-tool</span>
+            <span className="rr-access-desc">Wired directly into the graph via edges.</span>
+          </button>
+        </div>
+
+        <div className="ic-group-label">
+          Operations
+          <span className="ic-group-hint">Enable a subset of what the connection permits</span>
+        </div>
+        <div className="rr-op-list ic-op-list">
+          {permitted.map((op) => {
+            const on = !!ops[op.id];
+            return (
+              <button key={op.id} className={`rr-op-row${on ? " on" : ""}`} onClick={() => setOps((s) => ({ ...s, [op.id]: !s[op.id] }))}>
+                <span className="rr-op-check"><Icon name={on ? "check_box" : "check_box_outline_blank"} size={20} /></span>
+                <span className="rr-op-main">
+                  <span className="rr-op-label">
+                    {op.label}
+                    <span className={`rr-op-badge ${op.write ? "write" : "read"}`}>{op.write ? "Write" : "Read"}</span>
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+          {blocked.length > 0 && (
+            <div className="rr-help" style={{ marginTop: 2 }}>
+              Not permitted by this connection: {blocked.map((o) => o.label).join(", ")}.
+            </div>
+          )}
+        </div>
+
+        <div className="ic-group-label">
+          Scope
+          <span className="ic-group-hint">Inherited from the connection</span>
+        </div>
+        {lockedScope.map((s) => (
+          <div key={s.id} className="ic-locked-field">
+            <div className="ic-locked-main">
+              <div className="ic-locked-label"><Icon name="lock" size={15} />{s.label}</div>
+              <div className="ic-locked-value">{s.value}</div>
+              <div className="ic-locked-note">{s.help} Set by {conn.owner} — cannot change.</div>
+            </div>
+            <span className="ic-locked-badge"><Icon name="lock" size={12} />Locked</span>
+          </div>
+        ))}
+        {builderScope.length > 0 && (
+          <div className="rr-form" style={{ marginTop: lockedScope.length ? 8 : 0 }}>
+            {builderScope.map((s) => (
+              <div key={s.id} className="rr-field">
+                <label className="rr-label">{s.label}</label>
+                <input className="rr-input" value={scopeVals[s.id] || ""} onChange={(e) => setScopeVals((v) => ({ ...v, [s.id]: e.target.value }))} />
+                <div className="ic-field-inherit"><Icon name="lock_open" size={13} />Default from connection · editable within scope</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="ic-group-label">Configuration</div>
+        <div className="rr-form">
+          {conn.config.map((c) => (
+            <div key={c.id} className="rr-field">
+              <label className="rr-label">{c.label}</label>
+              <input className="rr-input" value={cfg[c.id] || ""} onChange={(e) => setCfg((v) => ({ ...v, [c.id]: e.target.value }))} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rr-modal-foot">
+        <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+        <div className="rr-foot-spacer" />
+        <button className={`btn btn-primary btn-sm${selectedCount > 0 ? "" : " is-disabled"}`} disabled={selectedCount === 0}>
+          Add to workflow
+        </button>
+      </div>
+    </div>
+  );
+
+  if (embedded) return card;
+  return (
+    <div className="rr-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      {card}
+    </div>
+  );
+};
+
+Object.assign(window, { BuilderNodeConfigModal });
