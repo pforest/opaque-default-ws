@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <title>Opaque — Registry</title>
 <link rel="stylesheet" href="colors_and_type.css" />
-<link rel="stylesheet" href="kit.css?v=22" />
+<link rel="stylesheet" href="kit.css?v=24" />
 <link rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,400,0..1,0" />
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
@@ -12,161 +12,42 @@
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 </head>
 <body>
+<template id="__bundler_thumbnail" data-bg-color="#0c1110">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#0c1110" />
+    <g fill="none" stroke="#10b981" stroke-width="14">
+      <rect x="360" y="250" width="480" height="80" rx="12" />
+      <rect x="360" y="360" width="480" height="80" rx="12" />
+      <rect x="360" y="470" width="480" height="80" rx="12" />
+    </g>
+    <g fill="#10b981">
+      <circle cx="420" cy="290" r="14" />
+      <circle cx="420" cy="400" r="14" />
+      <circle cx="420" cy="510" r="14" />
+    </g>
+  </svg>
+</template>
 <div id="root"></div>
 
-<style id="tweak-style"></style>
+<style>
+  /* Emerald links (Global Admin / multi-workspace view) */
+  .opq-table .link { color: var(--opq-emerald-400); }
+  .opq-table .link:hover { color: var(--opq-emerald-300); }
+</style>
 
 <script>
-// Tweaks — persisted defaults. The host rewrites this block on disk when
-// the design changes values via postMessage(__edit_mode_set_keys).
-const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-  "linkColor": "emerald"
-}/*EDITMODE-END*/;
-
-(function () {
-  const LINK_COLORS = {
-    emerald: { base: "var(--opq-emerald-400)", hover: "var(--opq-emerald-300)" },
-    info:    { base: "var(--opq-info-500)",    hover: "var(--opq-info-400)"    },
-    white:   { base: "#ffffff",                 hover: "var(--opq-ink-200)"    },
-  };
-
-  let state = { ...TWEAK_DEFAULTS };
-  let role = localStorage.getItem("opq-role") || "member";
-  let mode = localStorage.getItem("opq-mode") === "multi" ? "multi" : "single";
-  let panelEl = null;
-
-  function applyStyles() {
-    const c = LINK_COLORS[state.linkColor] || LINK_COLORS.emerald;
-    document.getElementById("tweak-style").textContent =
-      `.opq-table .link { color: ${c.base}; }
-       .opq-table .link:hover { color: ${c.hover}; }`;
-  }
-
-  function renderPanel() {
-    if (!panelEl) return;
-    const opt = (val, label) =>
-      `<button data-val="${val}" class="tweak-opt${state.linkColor === val ? " active" : ""}">${label}</button>`;
-    const ropt = (val, label) =>
-      `<button data-role="${val}" class="tweak-opt${role === val ? " active" : ""}">${label}</button>`;
-    const mopt = (val, label) =>
-      `<button data-mode="${val}" class="tweak-opt${mode === val ? " active" : ""}">${label}</button>`;
-    panelEl.innerHTML = `
-      <div class="tweak-head">
-        <span class="material-symbols-outlined" style="font-size:16px;color:var(--opq-emerald-500)">tune</span>
-        <span>Tweaks</span>
-      </div>
-      <div class="tweak-row">
-        <label>Workspace mode</label>
-        <div class="tweak-opts">
-          ${mopt("single", "Single")}
-          ${mopt("multi", "Multi")}
-        </div>
-      </div>
-      <div class="tweak-row">
-        <label>View as role</label>
-        <div class="tweak-opts">
-          ${ropt("owner", "Owner")}
-          ${ropt("global-admin", "Global Admin")}
-          ${ropt("member", "Member")}
-        </div>
-      </div>
-      <div class="tweak-row">
-        <label>Link color</label>
-        <div class="tweak-opts">
-          ${opt("emerald", "Emerald")}
-          ${opt("info", "Info blue")}
-          ${opt("white", "White")}
-        </div>
-      </div>
-    `;
-    panelEl.querySelectorAll(".tweak-opt[data-val]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        state.linkColor = btn.dataset.val;
-        applyStyles();
-        renderPanel();
-        window.parent.postMessage(
-          { type: "__edit_mode_set_keys", edits: { linkColor: state.linkColor } },
-          "*"
-        );
-      });
-    });
-    panelEl.querySelectorAll(".tweak-opt[data-role]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const r = btn.dataset.role;
-        if (r === role) return;
-        try { localStorage.setItem("opq-role", r); } catch (e) {}
-        location.reload();
-      });
-    });
-    panelEl.querySelectorAll(".tweak-opt[data-mode]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const m = btn.dataset.mode;
-        if (m === mode) return;
-        try { localStorage.setItem("opq-mode", m); } catch (e) {}
-        location.reload();
-      });
-    });
-  }
-
-  function showPanel() {
-    if (panelEl) { panelEl.style.display = "block"; return; }
-    panelEl = document.createElement("div");
-    panelEl.id = "tweaks-panel";
-    document.body.appendChild(panelEl);
-    renderPanel();
-  }
-
-  function hidePanel() {
-    if (panelEl) panelEl.style.display = "none";
-  }
-
-  // Register listener BEFORE announcing availability.
-  window.addEventListener("message", (e) => {
-    const t = e.data && e.data.type;
-    if (t === "__activate_edit_mode") showPanel();
-    else if (t === "__deactivate_edit_mode") hidePanel();
-  });
-
-  applyStyles();
-  window.parent.postMessage({ type: "__edit_mode_available" }, "*");
-})();
+// Locked view: Global Admin, multiple workspaces.
+try {
+  localStorage.setItem("opq-role", "global-admin");
+  localStorage.setItem("opq-mode", "multi");
+} catch (e) {}
 </script>
-
-<style>
-  #tweaks-panel {
-    position: fixed; right: 20px; bottom: 20px; z-index: 9999;
-    background: var(--opq-ink-850); border: 1px solid var(--opq-ink-800);
-    border-radius: 6px; padding: 12px 14px; min-width: 300px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
-    font-family: var(--font-sans); color: white; font-size: 13px;
-  }
-  #tweaks-panel .tweak-head {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 12px; font-weight: 500; color: var(--opq-ink-300);
-    text-transform: uppercase; letter-spacing: 0.04em;
-    margin-bottom: 10px;
-  }
-  #tweaks-panel .tweak-row label {
-    display: block; font-size: 12px; color: var(--opq-ink-400); margin-bottom: 6px;
-  }
-  #tweaks-panel .tweak-opts { display: flex; gap: 4px; }
-  #tweaks-panel .tweak-opt {
-    flex: 1; height: 28px; padding: 0 8px; white-space: nowrap;
-    background: transparent; border: 1px solid var(--opq-ink-800);
-    border-radius: 4px; color: var(--opq-ink-200);
-    font-family: inherit; font-size: 12px; cursor: pointer;
-  }
-  #tweaks-panel .tweak-opt:hover { background: var(--opq-ink-900); color: white; }
-  #tweaks-panel .tweak-opt.active {
-    background: var(--opq-emerald-500); border-color: var(--opq-emerald-500);
-    color: var(--opq-ink-900); font-weight: 500;
-  }
-</style>
 
 <script type="text/babel" src="Primitives.jsx"></script>
 <script type="text/babel" src="Nav.jsx"></script>
 <script type="text/babel" src="Workflows.jsx"></script>
 <script type="text/babel" src="RegisterResource.jsx"></script>
+<script type="text/babel" src="IntegrationEdit.jsx"></script>
 <script type="text/babel" src="Registry.jsx"></script>
 
 <script type="text/babel">

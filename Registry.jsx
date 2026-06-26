@@ -320,6 +320,7 @@ const IntegrationsTab = ({ onOpen }) => {
   const [query, setQuery] = React.useState("");
   const [typeFilter, setTypeFilter] = React.useState("All types");
   const [registerOpen, setRegisterOpen] = React.useState(false);
+  const [editTarget, setEditTarget] = React.useState(null);
   const [openMenu, setOpenMenu] = React.useState(null);
   const [toast, setToast] = React.useState(null);
   React.useEffect(() => {
@@ -437,7 +438,7 @@ const IntegrationsTab = ({ onOpen }) => {
                         </>
                       ) : (
                         <>
-                          <button><Icon name="edit" size={16} /><span>Edit configuration</span></button>
+                          <button onClick={() => { setOpenMenu(null); setEditTarget(window.SF_GOV_CONNECTION); }}><Icon name="edit" size={16} /><span>Edit configuration</span></button>
                           <button className="reg-row-menu-danger"><Icon name="delete" size={16} /><span>Unregister</span></button>
                         </>
                       )}
@@ -471,6 +472,9 @@ const IntegrationsTab = ({ onOpen }) => {
         onClose={() => setRegisterOpen(false)}
         onComplete={(r) => setToast(r)} />
       
+      {editTarget && typeof EditIntegrationModal !== "undefined" &&
+        <EditIntegrationModal connection={editTarget} onClose={() => setEditTarget(null)} />
+      }
       {toast &&
       <div className="rr-toast">
           <span className="rr-toast-dot" />
